@@ -1,0 +1,72 @@
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    if: github.repository == 'DesperateVanilla/OpenWrt-nikki-clean'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream into review branch
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/nikkinikki-org/OpenWrt-nikki.git
+          git fetch upstream main
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'Fork already contains upstream/main.'
+            exit 0
+          fi
+          if [ -n "$(gh pr list --base main --state open --json headRefName --jq '.[].headRefName | select(startswith("sync/upstream-"))')" ]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'An upstream sync PR is already awaiting review.'
+            exit 0
+          fi
+          branch="sync/upstream-$(git rev-parse --short=12 upstream/main)"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo 'Using existing upstream sync branch.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          if ! git merge --no-ff --no-edit upstream/main; then
+            git merge --abort || true
+            echo 'Upstream merge conflict: review and merge manually.' >&2
+            exit 1
+          fi
+          git push origin "HEAD:refs/heads/$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Open sync PR
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.merge.outputs.branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$(gh pr list --base main --head "$BRANCH" --json number --jq '.[0].number')" ]; then
+            gh pr create --base main --head "$BRANCH" \
+              --title 'Sync upstream Nikki main' \
+              --body 'Merge the latest nikkinikki-org/OpenWrt-nikki main into this fork. Review the local China defaults and installer changes before merging.'
+          fi

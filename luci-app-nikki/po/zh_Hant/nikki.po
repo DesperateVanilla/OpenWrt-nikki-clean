@@ -95,14 +95,6 @@ msgstr "黑名單模式"
 msgid "Bypass"
 msgstr "繞過"
 
-#: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/proxy.js:173
-msgid "Bypass China Mainland IP"
-msgstr "繞過中國大陸 IP"
-
-#: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/proxy.js:176
-msgid "Bypass China Mainland IP6"
-msgstr "繞過中國大陸 IP6"
-
 #: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/proxy.js:189
 msgid "Bypass DSCP"
 msgstr "繞過 DSCP"
@@ -1125,3 +1117,11 @@ msgstr "使用者名稱"
 #: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/app.js:128
 msgid "procd Config"
 msgstr "procd 設定"
+
+#: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/profile.js
+msgid "Send HWID"
+msgstr "傳送裝置識別碼"
+
+#: applications/luci-app-nikki/htdocs/luci-static/resources/view/nikki/profile.js
+msgid "Send a hashed device identifier and device details to this subscription provider."
+msgstr "向此訂閱提供商傳送雜湊裝置識別碼與裝置資訊。"

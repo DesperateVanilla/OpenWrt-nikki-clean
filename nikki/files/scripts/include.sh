@@ -34,11 +34,6 @@ SH_DIR="$HOME_DIR/scripts"
 INCLUDE_SH="$SH_DIR/include.sh"
 FIREWALL_INCLUDE_SH="$SH_DIR/firewall_include.sh"
 
-# nftables
-NFT_DIR="$HOME_DIR/nftables"
-GEOIP_CN_NFT="$NFT_DIR/geoip_cn.nft"
-GEOIP6_CN_NFT="$NFT_DIR/geoip6_cn.nft"
-
 # functions
 format_filesize() {
 	local b; b=1
@@ -82,4 +77,39 @@ prepare_files() {
 
 log() {
 	echo "[$(date "+%Y-%m-%d %H:%M:%S")] [$1] $2" >> "$APP_LOG_PATH"
+}
+
+# Only called for subscriptions that explicitly enable device headers.
+get_subscription_hwid() {
+	local mac
+	mac=""
+	if command -v fw_printenv >/dev/null 2>&1; then
+		mac="$(fw_printenv ethaddr 2>/dev/null | sed -n 's/^ethaddr=//p' | tr -d '\r\n')"
+	fi
+	if [ -z "$mac" ] && [ -r /sys/class/net/eth0/address ]; then
+		mac="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d '\r\n')"
+	fi
+	if [ -z "$mac" ] && [ -r /sys/class/net/wan/address ]; then
+		mac="$(cat /sys/class/net/wan/address 2>/dev/null | tr -d '\r\n')"
+	fi
+	printf '%s\n' "$mac" | grep -Eq '^[[:xdigit:]]{2}(:[[:xdigit:]]{2}){5}$' || return 0
+	[ "$mac" = '00:00:00:00:00:00' ] && return 0
+	command -v sha256sum >/dev/null 2>&1 || return 0
+	printf '%s\n' "$mac" | tr '[:upper:]' '[:lower:]' | tr -d ':' | sha256sum | cut -d ' ' -f 1
+}
+
+get_subscription_model() {
+	if [ -r /tmp/sysinfo/model ]; then
+		tr -d '\r\n' < /tmp/sysinfo/model
+	else
+		printf '%s' 'unknown'
+	fi
+}
+
+get_subscription_os_version() {
+	if [ -r /etc/openwrt_release ]; then
+		(. /etc/openwrt_release; printf '%s' "${DISTRIB_RELEASE:-unknown}") | tr -d '\r\n'
+	else
+		printf '%s' 'unknown'
+	fi
 }

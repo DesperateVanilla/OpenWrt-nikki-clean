@@ -1,108 +1,69 @@
-![GitHub License](https://img.shields.io/github/license/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) ![GitHub Tag](https://img.shields.io/github/v/release/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/nikkinikki-org/OpenWrt-nikki/total?style=for-the-badge&logo=github) ![GitHub Repo stars](https://img.shields.io/github/stars/nikkinikki-org/OpenWrt-nikki?style=for-the-badge&logo=github) [![Telegram](https://img.shields.io/badge/Telegram-gray?style=for-the-badge&logo=telegram)](https://t.me/nikkinikki_org)
+# OpenWrt Nikki Clean
 
-English | [中文](README.zh.md)
+Форк [OpenWrt-nikki](https://github.com/nikkinikki-org/OpenWrt-nikki) на актуальной ветке main с установкой из GitHub Releases. [Nikkix](https://github.com/mglants/nikkix) использован как ориентир для заголовков HWID подписки. Остальные изменения сделаны поверх свежего upstream, чтобы новые исправления Nikki можно было регулярно переносить.
 
-# Nikki
+## Поддерживаемые сборки
 
-Transparent Proxy with Mihomo on OpenWrt.
+| Устройство | Прошивка | DISTRIB_ARCH | Архив релиза |
+| --- | --- | --- | --- |
+| NanoPi R3S | FriendlyWrt / OpenWrt 24.10 | aarch64_generic | nikki_aarch64_generic-openwrt-24.10.tar.gz |
+| Cudy WR3000S | OpenWrt / FriendlyWrt 24.10 | aarch64_cortex-a53 | nikki_aarch64_cortex-a53-openwrt-24.10.tar.gz |
 
-## Prerequisites
+Требуются firewall4, opkg и ядро с модулями, перечисленными в [nikki/Makefile](nikki/Makefile). Совместимость kmod зависит от конкретной сборки ядра FriendlyWrt: пакетный менеджер должен находить модули именно для вашей прошивки. Поддержка APK и других архитектур в установщике отключена.
 
-- OpenWrt >= 24.10
-- Linux Kernel >= 5.13
-- firewall4
+## Отличия от upstream
 
-## Feature
+- Удалены встроенные списки China GeoIP и переключатели обхода китайских IP в конфигурации, nftables и LuCI.
+- Убраны DNS-правила для CN/!CN и предустановленные китайские DNS. В исходной конфигурации стоят 1.1.1.1 и 9.9.9.9; при желании замените их на свои. Пользовательские профили Mihomo и его функции GeoIP продолжают работать.
+- Для каждой подписки можно включить передачу HWID в LuCI. По умолчанию она выключена. При включении отправляются SHA-256 от MAC и заголовки с моделью и версией OpenWrt только серверу этой подписки.
+- Пакеты и установщик больше не используют nikkinikki.pages.dev. Фид opkg не публикуется; используется архив GitHub Release.
+- Китайские переводы интерфейса сохранены.
 
-- Transparent Proxy (Redirect/TPROXY/TUN, IPv4 and/or IPv6)
-- Access Control
-- Profile Mixin
-- Profile Editor
-- Scheduled Restart
+## Установка
 
-## Install & Update
+Проверьте архитектуру на роутере:
 
-### A. Install From Feed (Recommended)
+~~~sh
+. /etc/openwrt_release
+echo "$DISTRIB_RELEASE $DISTRIB_ARCH"
+~~~
 
-1. Add Feed
+После публикации первого релиза скачайте скрипт отдельно и запустите:
 
-```shell
-# only needs to be run once
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/feed.sh | ash
-```
+~~~sh
+wget -O /tmp/nikki-install.sh https://raw.githubusercontent.com/DesperateVanilla/OpenWrt-nikki-clean/main/install.sh
+sh /tmp/nikki-install.sh
+~~~
 
-2. Install
+Если GitHub на роутере недоступен, перенесите скрипт и архив нужной архитектуры на роутер любым доступным способом:
 
-```shell
-# you can install from shell or `Software` menu in LuCI
-# for opkg
-opkg install nikki
-opkg install luci-app-nikki
-opkg install luci-i18n-nikki-zh-cn
-# for apk
-apk add nikki
-apk add luci-app-nikki
-apk add luci-i18n-nikki-zh-cn
-```
+~~~sh
+NIKKI_ARCHIVE_FILE=/tmp/nikki_aarch64_generic-openwrt-24.10.tar.gz sh /tmp/nikki-install.sh
+~~~
 
-### B. Install From Release
+Для Cudy замените имя архива на nikki_aarch64_cortex-a53-openwrt-24.10.tar.gz. Установщик проверяет версию OpenWrt, архитектуру и наличие обязательных пакетов в архиве. Зависимости opkg берёт из уже настроенных репозиториев прошивки; при необходимости выполните opkg update из доступного вам репозитория FriendlyWrt перед установкой.
 
-```shell
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/install.sh | ash
-```
+При обновлении с Nikki/Nikkix opkg сохраняет существующий /etc/config/nikki. Если в нём уже настроены китайские DNS или политики CN/!CN, удалите их в настройках DNS LuCI и задайте нужные вам DNS. Новые нейтральные значения применяются к новой конфигурации и не перезаписывают пользовательские настройки.
 
-## Uninstall & Reset
+Для установки конкретного тега задайте NIKKI_RELEASE_TAG, а для другого зеркала релизов — NIKKI_RELEASE_REPO=owner/repo. При наличии NIKKI_ARCHIVE_FILE загрузка из сети не требуется.
 
-```shell
-wget -O - https://github.com/nikkinikki-org/OpenWrt-nikki/raw/refs/heads/main/uninstall.sh | ash
-```
+## Сборка и обновления
 
-## How To Use
+Workflow release-packages собирает только две архитектуры OpenWrt 24.10. После публикации кода в GitHub создайте тег вида v1.26.1-clean.1: сборка прикрепит два архива к GitHub Release. Workflow build-packages позволяет проверить обе сборки вручную.
 
-See [Wiki](https://github.com/nikkinikki-org/OpenWrt-nikki/wiki)
+Если код Nikki или LuCI меняется без повышения PKG_VERSION, увеличьте PKG_RELEASE в соответствующем Makefile перед новым тегом, иначе opkg может считать новый пакет уже установленным.
 
-## How does it work
+Workflow sync-upstream ежедневно проверяет nikkinikki-org/OpenWrt-nikki/main и создаёт PR для бесконфликтного обновления. Пока PR ожидает ревью, новые PR не создаются. Конфликт завершает workflow ошибкой для ручного разбора. После ревью PR и слияния создайте новый тег, чтобы выпустить обновлённые пакеты. На форке нужно включить GitHub Actions и разрешить Actions создавать pull requests. Автоматическое слияние не настроено.
 
-1. Mixin and Update profile.
-2. Run mihomo.
-3. Set scheduled restart.
-4. Set ip rule/route
-5. Generate nftables and apply it.
+Для собственной сборки в OpenWrt SDK добавьте feed из этого репозитория:
 
-Note that the steps above may change base on config.
-
-## Compilation
-
-```shell
-# add feed
-echo "src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git;main" >> "feeds.conf.default"
-# update & install feeds
-./scripts/feeds update -a
-./scripts/feeds install -a
-# make package
+~~~sh
+echo "src-git nikki https://github.com/DesperateVanilla/OpenWrt-nikki-clean.git;main" >> feeds.conf.default
+./scripts/feeds update nikki
+./scripts/feeds install -a -p nikki
 make package/luci-app-nikki/compile
-```
+~~~
 
-The package files will be found under `bin/packages/your_architecture/nikki`.
+Этот репозиторий содержит исходники и CI. До первого успешного GitHub Release ссылку на архив и сетевую установку использовать нельзя. Сборка через OpenWrt SDK и запуск на обоих роутерах должны быть проверены после публикации.
 
-## Dependencies
-
-- ca-bundle
-- curl
-- yq
-- firewall4
-- ip-full
-- kmod-inet-diag
-- kmod-nft-socket
-- kmod-nft-tproxy
-- kmod-tun
-- kmod-dummy
-
-## Contributors
-
-[![Contributors](https://contrib.rocks/image?repo=nikkinikki-org/OpenWrt-nikki)](https://github.com/nikkinikki-org/OpenWrt-nikki/graphs/contributors)
-
-## Special Thanks
-
-- [@ApoisL](https://github.com/apoiston)
-- [@xishang0128](https://github.com/xishang0128)
+Лицензия: [GPL-3.0](LICENSE). Благодарность авторам OpenWrt-nikki, Mihomo и Nikkix.

@@ -1,0 +1,27 @@
+name: checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Shell syntax
+        run: |
+          for file in install.sh feed.sh uninstall.sh nikki/files/nikki.init nikki/files/scripts/include.sh nikki/files/uci-defaults/migrate.sh tests/*.sh; do
+            sh -n "$file"
+          done
+      - name: Installer and HWID tests
+        run: |
+          sh tests/test_install.sh
+          sh tests/test_hwid.sh

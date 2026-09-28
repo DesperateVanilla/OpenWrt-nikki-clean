@@ -1,0 +1,7 @@
+*.sh text eol=lf
+*.init text eol=lf
+*.ut text eol=lf
+*.uc text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+.gitattributes text eol=lf
