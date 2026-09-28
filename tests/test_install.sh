@@ -13,12 +13,27 @@ EOF
 cat > "$tmp/bin/opkg" <<'EOF'
 #!/bin/sh
 case "$1" in
+    update)
+        printf '%s\n' update >> "$OPKG_LOG"
+        if [ "${OPKG_UPDATE_FAIL_ONCE:-0}" = 1 ] && [ ! -e "$OPKG_UPDATE_MARKER" ]; then
+            : > "$OPKG_UPDATE_MARKER"
+            exit 1
+        fi
+        [ "${OPKG_UPDATE_FAIL:-0}" = 0 ]
+        ;;
     install)
         printf '%s\n' "$*" >> "$OPKG_LOG"
         [ "${OPKG_FAIL:-0}" = 0 ]
         ;;
     list-installed)
-        [ "${2:-}" = luci-i18n-base-ru ] && printf '%s\n' 'luci-i18n-base-ru - 1'
+        case "${2:-}" in
+            yq|kmod-inet-diag)
+                [ "${MOCK_MISSING_DEPS:-0}" = 1 ] || printf '%s - 1\n' "$2"
+                ;;
+            ca-bundle|curl|ip-full|kmod-nft-socket|kmod-nft-tproxy|kmod-tun|kmod-dummy|luci-i18n-base-ru)
+                printf '%s - 1\n' "$2"
+                ;;
+        esac
         ;;
 esac
 EOF
@@ -49,6 +64,7 @@ EOF
 export PATH="$tmp/bin:$PATH"
 export NIKKI_OPENWRT_RELEASE_FILE="$tmp/release"
 export OPKG_LOG="$tmp/opkg.log"
+export OPKG_UPDATE_MARKER="$tmp/opkg-update-failed-once"
 export WGET_LOG="$tmp/wget.log"
 
 NIKKI_ARCHIVE_FILE="$tmp/aarch64_generic.tar.gz" sh "$repo/install.sh" > "$tmp/output"
@@ -56,6 +72,24 @@ grep -q 'Nikki installed for aarch64_generic' "$tmp/output"
 grep -q 'mihomo-meta_1_aarch64_generic.ipk' "$OPKG_LOG"
 grep -q 'luci-i18n-nikki-ru_1_all.ipk' "$OPKG_LOG"
 [ ! -e "$WGET_LOG" ]
+
+: > "$OPKG_LOG"
+MOCK_MISSING_DEPS=1 NIKKI_ARCHIVE_FILE="$tmp/aarch64_generic.tar.gz" sh "$repo/install.sh" > "$tmp/output"
+[ "$(sed -n '1p' "$OPKG_LOG")" = update ]
+[ "$(sed -n '2p' "$OPKG_LOG")" = 'install yq kmod-inet-diag' ]
+grep -q 'mihomo-meta_1_aarch64_generic.ipk' "$OPKG_LOG"
+
+: > "$OPKG_LOG"
+OPKG_UPDATE_FAIL_ONCE=1 MOCK_MISSING_DEPS=1 NIKKI_ARCHIVE_FILE="$tmp/aarch64_generic.tar.gz" sh "$repo/install.sh" > "$tmp/output" 2>&1
+[ "$(sed -n '1p' "$OPKG_LOG")" = update ]
+[ "$(sed -n '2p' "$OPKG_LOG")" = update ]
+[ "$(sed -n '3p' "$OPKG_LOG")" = 'install yq kmod-inet-diag' ]
+
+if MOCK_MISSING_DEPS=1 OPKG_UPDATE_FAIL=1 NIKKI_ARCHIVE_FILE="$tmp/aarch64_generic.tar.gz" sh "$repo/install.sh" > "$tmp/output" 2>&1; then
+    echo 'opkg update failure unexpectedly ignored' >&2
+    exit 1
+fi
+grep -q 'opkg update failed' "$tmp/output"
 
 printf "DISTRIB_RELEASE='24.10.4'\nDISTRIB_ARCH='mips_24kc'\n" > "$tmp/release"
 if NIKKI_ARCHIVE_FILE="$tmp/aarch64_generic.tar.gz" sh "$repo/install.sh" > "$tmp/output" 2>&1; then

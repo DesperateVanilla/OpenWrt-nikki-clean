@@ -91,6 +91,24 @@ case "$mihomo" in *_"$arch".ipk) ;; *) die 'mihomo-meta architecture mismatch' ;
 case "$nikki" in *_"$arch".ipk) ;; *) die 'nikki architecture mismatch' ;; esac
 case "$luci" in *_all.ipk) ;; *) die 'LuCI package architecture mismatch' ;; esac
 
+# Local release archives contain Nikki and Mihomo, but firmware dependencies
+# must come from the router's own feeds so kernel modules match its kernel ABI.
+missing_deps=''
+for dep in ca-bundle curl yq ip-full kmod-inet-diag kmod-nft-socket kmod-nft-tproxy kmod-tun kmod-dummy; do
+    if ! opkg list-installed "$dep" | grep -q "^$dep "; then
+        missing_deps="$missing_deps $dep"
+    fi
+done
+if [ -n "$missing_deps" ]; then
+    printf 'Installing missing firmware dependencies:%s\n' "$missing_deps"
+    if ! opkg update; then
+        printf 'nikki installer: retrying opkg update after a feed error\n' >&2
+        opkg update || die 'opkg update failed; check the firmware package feeds and Internet access'
+    fi
+    # Word splitting is intentional: names above are fixed package identifiers.
+    opkg install $missing_deps || die 'cannot install firmware dependencies; check package feeds and kernel ABI'
+fi
+
 opkg install "$mihomo" "$nikki" "$luci" || die 'package installation failed'
 
 for translation in "$work"/luci-i18n-nikki-*.ipk; do
